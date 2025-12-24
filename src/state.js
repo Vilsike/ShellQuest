@@ -3,6 +3,11 @@ import { getStorage } from './storage.js';
 const STORAGE_KEY = 'shellquest-state-v0.2';
 
 export const defaultState = {
+  account: {
+    username: null,
+    profileId: null,
+    mode: 'local',
+  },
   player: {
     level: 1,
     xp: 0,
@@ -25,6 +30,7 @@ export const defaultState = {
     commandLog: [],
   },
   lastActive: Date.now(),
+  updatedAt: new Date().toISOString(),
   streak: {
     lastCheck: Date.now(),
     days: 0,
@@ -42,6 +48,7 @@ export function loadState() {
     return {
       ...structuredClone(defaultState),
       ...parsed,
+      account: { ...structuredClone(defaultState.account), ...parsed.account },
       player: { ...structuredClone(defaultState.player), ...parsed.player },
       upgrades: { ...structuredClone(defaultState.upgrades), ...parsed.upgrades },
       stats: { ...structuredClone(defaultState.stats), ...parsed.stats },
@@ -55,6 +62,7 @@ export function loadState() {
 }
 
 export function saveState(state) {
+  state.updatedAt = new Date().toISOString();
   const storage = getStorage();
   storage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
