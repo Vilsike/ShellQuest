@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShellQuest v0.2</title>
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">ShellQuest v0.2</div>
+    <div class="stats" id="player-stats"></div>
+  </header>
+  <main>
+    <section class="panel terminal-panel">
+      <div class="panel-header">
+        <h2>Terminal</h2>
+        <div id="streak"></div>
+      </div>
+      <div class="terminal-output" id="terminal-output"></div>
+      <form id="command-form">
+        <span class="prompt">$</span>
+        <input id="command-input" autocomplete="off" />
+        <button type="submit">Run</button>
+      </form>
+    </section>
+    <section class="panel quest-panel">
+      <div class="panel-header">
+        <h2>Zones & Quests</h2>
+        <div class="zone-tabs" id="zone-tabs"></div>
+      </div>
+      <div id="quest-list" class="quest-list"></div>
+    </section>
+    <section class="panel shop-panel">
+      <div class="panel-header">
+        <h2>Upgrade Shop</h2>
+        <div class="currency" id="currency"></div>
+      </div>
+      <div id="shop" class="shop"></div>
+      <div id="offline-report" class="offline-report hidden"></div>
+    </section>
+  </main>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
