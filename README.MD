@@ -1,39 +1,58 @@
-# ShellQuest v0.2
+# ShellQuest
 
-ShellQuest is a static single-page terminal adventure. Serve `index.html` to play; no build tools are required.
+ShellQuest now supports cloud accounts backed by Supabase while remaining a static site (just open `index.html` or serve the folder).
 
-## Zones & progression
-- Zones: **Terminal Plains**, **Filewood Forest**, **Grep Caves**.
-- Unlock rules: clear 6 quests in the current zone to unlock the next (Zone 2 unlocks after 6 Zone 1 quests, Zone 3 after 6 Zone 2 quests).
-- Each zone has its own quest list in the Zones & Quests panel.
+## Features
+- Email/password authentication powered by Supabase Auth
+- Unique, case-insensitive usernames stored in the `profiles` table
+- Cloud-saved progression stored in `progress.save` (JSONB) with last-write-wins merge
+- Offline-friendly: localStorage always holds the save; sync happens when online and logged in
 
-## Quests
-- 25 quests in total: 8 / 9 / 8 across the three zones.
-- Each quest defines `id`, `title`, `zone`, `intro`, `goal`, `hints[]`, `successCriteria(context)`, and `rewards { xp, coins, skill }`.
-- Success criteria are evaluated on each command; completed quests automatically grant rewards and mark progress.
+## Canonical save shape
+The save payload that travels between localStorage and Supabase includes:
 
-## Player progression
-- Player stats: level, XP, coins, and skill tracks (Navigation, Files, Text).
-- XP required for next level: `50 + 25 * (level - 1)`.
-- Quest rewards apply XP and coins with upgrade multipliers; skill XP is fed to the quest’s primary skill.
+```json
+{
+  "xp": 0,
+  "coins": 0,
+  "streak": 0,
+  "quests": [],
+  "upgrades": [],
+  "inventory": [],
+  "lastDailyClaim": null,
+  "updatedAt": "2024-01-01T00:00:00.000Z"
+}
+```
 
-## Upgrade shop
-- Upgrades spend coins and persist in `localStorage`:
-  - **XP Booster** (+10% XP up to +50%)
-  - **Coin Magnet** (+10% coins up to +50%)
-  - **Long Rest** (+2h offline cap up to 12h)
-  - **Quick Thinking** (-5s hint cooldown)
+`updatedAt` is refreshed on every change to support conflict resolution.
 
-## Offline gains
-- Coins accrue while away: `10 coins/hour * (1 + coin boost)` capped by the offline cap (default 8h, up to 12h with upgrades).
-- A welcome-back card shows time away and rewards when you return.
+## Setting up Supabase
+1. Create a new project at [Supabase](https://supabase.com/).
+2. From **Project Settings → API**, copy the project URL and anon key.
+3. Run the SQL in [`docs/supabase.sql`](./docs/supabase.sql) in the Supabase SQL editor to create tables, the `citext` extension, and RLS policies.
+   - The `profiles.username` column is `citext` with a unique constraint, enforcing uniqueness at the database layer.
+   - RLS policies restrict reads/writes so users can access only their own `profiles` and `progress` rows.
+4. Open `src/config.example.js`, copy it to `src/config.js`, and paste your Supabase URL and anon key:
 
-## Adding quests or zones
-- Add zones in `src/quests.js` (`zones` array). Each zone can define an unlock `requirement(state)`.
-- Add quests to the `quests` array with the required properties and a `successCriteria({ state, fs })` function that returns true when complete.
-- Use the virtual filesystem (`filesystem.js`) or command history (`state.stats.commandLog`) inside success checks to validate behaviors.
-- Keep the total quest count and unlock requirements aligned with your content.
+```js
+window.SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+window.SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+```
 
-## Running & testing
-- Open `index.html` in a browser to play.
-- Tests are Node-based: run `npm test` (or `node tests/run-tests.js`) to validate quest rules and command behaviors.
+> Tip: `config.js` is gitignored so secrets stay out of version control.
+
+## Running locally
+- Install dependencies for tests: `npm install`
+- Open `index.html` directly in a browser or serve the folder (e.g., `npx serve .`). Everything runs as static files.
+
+## Using accounts
+1. In **Settings → Sign up**, create an account (Supabase handles password hashing; nothing is stored in plaintext here).
+2. After signing in, if no profile row exists, the **Claim your username** modal appears. Usernames must be 3–16 characters, start with a letter, and may include lowercase letters, numbers, or underscores. Unique constraint + `citext` prevents race conditions and case collisions.
+3. Progress automatically syncs after key events (demo quest button) and via **Sync now**. The latest `updatedAt` wins when merging local and cloud saves.
+4. Signing out keeps your local save intact for offline play.
+
+## Privacy note
+Saved games are stored per account in Supabase. Local saves stay in your browser’s `localStorage` and sync only when authenticated.
+
+## Tests
+Run `npm test` to execute Jest unit tests for username validation and merge logic.

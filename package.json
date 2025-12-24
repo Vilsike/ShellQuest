@@ -1,8 +1,15 @@
 {
   "name": "shellquest",
-  "version": "0.2.0",
+  "version": "1.0.0",
+  "description": "ShellQuest static app with Supabase integration",
   "type": "module",
   "scripts": {
-    "test": "node tests/run-tests.js"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
