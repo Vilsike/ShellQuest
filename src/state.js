@@ -25,6 +25,7 @@ export const defaultState = {
     hintCooldownReduction: 0,
   },
   questStatus: {},
+  zoneUnlockNotified: {},
   stats: {
     completedQuestsByZone: {},
     commandLog: [],
