@@ -1,0 +1,149 @@
+:root {
+  --bg: #0d1117;
+  --panel: #111827;
+  --accent: #7c3aed;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --success: #10b981;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.15), transparent 40%),
+              radial-gradient(circle at 80% 10%, rgba(16, 185, 129, 0.1), transparent 35%),
+              var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.logo { font-weight: 800; letter-spacing: 0.5px; }
+.stats { color: var(--muted); font-size: 14px; }
+
+main {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 2fr 1.5fr;
+  grid-template-rows: 1fr auto;
+}
+
+.panel {
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.terminal-panel { grid-row: 1 / span 2; }
+.terminal-output {
+  background: #0b1221;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 320px;
+  max-height: 520px;
+  overflow-y: auto;
+  font-family: 'Source Code Pro', monospace;
+  font-size: 14px;
+}
+
+.output-line {
+  margin: 2px 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.output-line .cmd {
+  color: #93c5fd;
+  min-width: 42px;
+  display: inline-block;
+  font-family: 'Source Code Pro', monospace;
+}
+.output-line .text {
+  color: var(--muted);
+  white-space: pre-wrap;
+  font-family: 'Source Code Pro', monospace;
+}
+.output-line.ascii .cmd { padding-top: 2px; }
+.output-line.ascii pre {
+  margin: 0;
+  white-space: pre;
+  font-family: 'Source Code Pro', monospace;
+  color: var(--muted);
+}
+
+#command-form { display: flex; gap: 8px; margin-top: 8px; }
+#command-input {
+  flex: 1;
+  background: #0f172a;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+#command-form button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.zone-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.zone-tab {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  color: var(--muted);
+}
+.zone-tab.active { background: rgba(124, 58, 237, 0.2); color: white; border-color: rgba(124,58,237,0.4); }
+.zone-tab.locked { opacity: 0.5; cursor: not-allowed; }
+
+.quest-list { display: grid; gap: 8px; }
+.quest-card {
+  padding: 10px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+.quest-card .title { font-weight: 700; }
+.quest-card .goal { color: var(--muted); font-size: 14px; }
+.quest-card .meta { display: flex; justify-content: space-between; font-size: 13px; margin-top: 6px; color: var(--muted); }
+.quest-card .actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.quest-card button { border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.quest-card .hint { background: rgba(255,255,255,0.05); color: var(--text); }
+.quest-card .complete { background: var(--success); color: #032915; }
+
+.shop { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.upgrade-card { padding: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #0f172a; }
+.upgrade-card h4 { margin: 0 0 4px 0; }
+.upgrade-card button { margin-top: 8px; width: 100%; background: var(--accent); color: white; border: none; padding: 6px; border-radius: 6px; cursor: pointer; }
+
+.hidden { display: none; }
+.offline-report { margin-top: 10px; padding: 10px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 8px; color: #a7f3d0; }
+
+.currency { color: var(--muted); }
+
+.skill-bars { display: grid; gap: 4px; margin-top: 4px; }
+.skill-bar { background: #0f172a; border-radius: 6px; overflow: hidden; position: relative; }
+.skill-bar span { position: absolute; left: 8px; top: 4px; font-size: 12px; color: var(--muted); }
+.skill-fill { background: linear-gradient(90deg, #7c3aed, #06b6d4); height: 20px; }
