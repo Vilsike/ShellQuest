@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight" data-font="normal" data-motion="full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShellQuest</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <div class="app" aria-label="ShellQuest interactive terminal">
+    <header class="app-header">
+      <h1>ShellQuest</h1>
+      <div class="streak" aria-live="polite">
+        <span id="streak-label">Streak: 0 days</span>
+        <span id="streak-bonus" class="bonus"></span>
+      </div>
+      <div class="header-actions">
+        <button id="open-settings" class="ghost" aria-haspopup="dialog">Settings</button>
+        <button id="open-help" class="primary" aria-haspopup="dialog">Tutorial</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="terminal" aria-label="ShellQuest terminal" aria-live="polite">
+        <div id="terminal-output" class="terminal-output" tabindex="0"></div>
+        <div class="terminal-input-row">
+          <span class="prompt" aria-hidden="true">➜</span>
+          <input id="terminal-input" aria-label="Command input" autocomplete="off" spellcheck="false" />
+        </div>
+        <div id="terminal-hint" class="terminal-hint" aria-live="polite"></div>
+      </section>
+
+      <aside class="quests" aria-label="Quest log">
+        <div class="quests-header">
+          <h2>Quest Log</h2>
+          <button id="add-quest" class="ghost">Add Quest</button>
+        </div>
+        <ul id="quest-list" class="quest-list"></ul>
+      </aside>
+    </main>
+  </div>
+
+  <div id="tutorial" class="modal" role="dialog" aria-modal="true" aria-labelledby="tutorial-title" hidden>
+    <div class="modal-content" tabindex="-1">
+      <h2 id="tutorial-title">Welcome to ShellQuest</h2>
+      <ol>
+        <li>Type <kbd>help</kbd> to see available commands.</li>
+        <li>Use <kbd>Tab</kbd> to autocomplete commands and paths.</li>
+        <li>Press <kbd>↑</kbd>/<kbd>↓</kbd> to revisit previous commands.</li>
+      </ol>
+      <div class="modal-actions">
+        <button id="dismiss-tutorial" class="primary">Start exploring</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+    <div class="modal-content" tabindex="-1">
+      <h2 id="settings-title">Settings</h2>
+      <form class="settings-form">
+        <label>
+          <input type="checkbox" id="reduce-motion" /> Reduce motion
+        </label>
+        <label>
+          <input type="checkbox" id="font-size" /> Larger font
+        </label>
+        <fieldset>
+          <legend>Terminal theme</legend>
+          <label><input type="radio" name="theme" value="midnight" checked /> Midnight</label>
+          <label><input type="radio" name="theme" value="sunrise" /> Sunrise</label>
+        </fieldset>
+      </form>
+      <div class="modal-actions">
+        <button id="close-settings" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
