@@ -1,7 +1,8 @@
 let createClient;
+const isTestEnv = typeof process !== 'undefined' && process.env?.VITEST;
 
-if (typeof window === 'undefined') {
-  // Node/Jest: rely on the installed dependency
+if (typeof window === 'undefined' || isTestEnv) {
+  // Node/Jest/Vitest: rely on the installed dependency
   const pkg = await import('@supabase/supabase-js');
   createClient = pkg.createClient;
 } else {

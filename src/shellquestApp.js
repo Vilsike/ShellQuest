@@ -3,6 +3,7 @@ import { executeCommand } from './terminal.js';
 import { loadState, saveState, applyRewards, updateQuestProgress, xpForNextLevel } from './state.js';
 import { zones, availableQuests, isQuestComplete, zoneUnlocked, quests } from './quests.js';
 import { upgradeCatalog, purchaseUpgrade } from './upgrades.js';
+import { scheduleAutosave, attemptPendingSync, flushPendingSync } from './sync.js';
 
 const state = loadState();
 const fs = createDefaultFS();
@@ -29,6 +30,9 @@ function init() {
   checkOfflineGains();
   updateStreak();
   logLine('Type `help` to begin your run.');
+  if (!state.account?.username) {
+    logLine('Tip: create a profile with `signup <username>` to enable cloud saves.');
+  }
 }
 
 function renderTabs() {
@@ -116,7 +120,7 @@ function renderShop() {
       if (result.error) {
         logLine(result.error);
       } else {
-        saveState(state);
+        persistStateWithSync();
         renderStats();
         logLine(`Purchased ${upgrade.name}`);
       }
@@ -157,14 +161,27 @@ function logLine(text, command = '') {
   terminalOutputEl.scrollTop = terminalOutputEl.scrollHeight;
 }
 
-function handleCommand(event) {
+function persistStateWithSync() {
+  saveState(state);
+  scheduleAutosave(state);
+}
+
+function refreshUI() {
+  renderStats();
+  renderTabs();
+  renderQuests();
+  renderShop();
+}
+
+async function handleCommand(event) {
   event.preventDefault();
   const value = input.value;
   input.value = '';
-  const result = executeCommand(value, fs, state);
+  const result = await executeCommand(value, fs, state);
   result.output.forEach((text) => logLine(text, result.command));
   checkQuests();
-  saveState(state);
+  refreshUI();
+  persistStateWithSync();
 }
 
 function checkQuests() {
@@ -181,7 +198,7 @@ function checkQuests() {
       renderQuests();
     }
   });
-  saveState(state);
+  persistStateWithSync();
 }
 
 function checkOfflineGains() {
@@ -197,7 +214,7 @@ function checkOfflineGains() {
     offlineReportEl.innerHTML = `Welcome back! You were away for ${(elapsed / (1000 * 60 * 60)).toFixed(2)}h and earned ${coinGain} coins.`;
   }
   state.lastActive = now;
-  saveState(state);
+  persistStateWithSync();
 }
 
 function updateStreak() {
@@ -211,7 +228,7 @@ function updateStreak() {
   }
   state.streak.lastCheck = now;
   streakEl.textContent = `Streak: ${state.streak.days} day${state.streak.days === 1 ? '' : 's'}`;
-  saveState(state);
+  persistStateWithSync();
 }
 
 let started = false;
@@ -226,7 +243,9 @@ export function startShellQuest() {
 
   window.addEventListener('beforeunload', () => {
     state.lastActive = Date.now();
-    saveState(state);
+    persistStateWithSync();
+    flushPendingSync(state);
   });
+  window.addEventListener('online', () => attemptPendingSync(state));
 }
 

@@ -1,67 +1,73 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient.js';
-import { getLocalSave, setLocalSave } from './storage.js';
 
 let pendingSync = false;
-let currentUserId = null;
+let debounceTimer = null;
+const DEBOUNCE_MS = 2500;
 
-export function setCurrentUser(userId) {
-  currentUserId = userId;
+function isCloudMode(account) {
+  return account?.mode === 'cloud' && Boolean(account.profileId);
 }
 
-function normalizeSave(save, updatedAt) {
-  if (!save) return null;
-  return { ...save, updatedAt: updatedAt || save.updatedAt || new Date().toISOString() };
+function normalizeStateForSave(state) {
+  const cleanState = structuredClone(state);
+  cleanState.updatedAt = new Date().toISOString();
+  return cleanState;
 }
 
-export function mergeSaves(localSave, cloudRecord) {
-  const cloudSave = cloudRecord ? normalizeSave(cloudRecord.save, cloudRecord.updated_at) : null;
-  const local = normalizeSave(localSave, localSave?.updatedAt);
+export function mergeSaves(localState, cloudRecord) {
+  const cloudState = cloudRecord ? { ...cloudRecord.state, updatedAt: cloudRecord.updated_at } : null;
+  const local = localState ? { ...localState, updatedAt: localState.updatedAt || new Date().toISOString() } : null;
 
-  if (!cloudSave && local) return { save: local, source: 'local' };
-  if (cloudSave && !local) return { save: cloudSave, source: 'cloud' };
+  if (!cloudState && local) return { save: local, source: 'local' };
+  if (cloudState && !local) return { save: cloudState, source: 'cloud' };
 
   const localTime = new Date(local.updatedAt || 0).getTime();
-  const cloudTime = new Date(cloudSave.updatedAt || 0).getTime();
+  const cloudTime = new Date(cloudState.updatedAt || 0).getTime();
 
   if (cloudTime > localTime) {
-    return { save: cloudSave, source: 'cloud' };
+    return { save: cloudState, source: 'cloud' };
   }
   return { save: local, source: 'local' };
 }
 
-async function fetchCloudSave() {
-  if (!currentUserId) return { data: null, error: null };
+export async function fetchCloudSave(profileId) {
+  if (!profileId) return { data: null, error: new Error('Missing profileId') };
   if (!isSupabaseConfigured()) return { data: null, error: new Error('Supabase not configured') };
-  return supabase.from('progress').select('save, updated_at').eq('user_id', currentUserId).maybeSingle();
+  return supabase.from('saves').select('state, updated_at').eq('profile_id', profileId).maybeSingle();
 }
 
-export async function syncFromCloud() {
-  const local = getLocalSave();
-  const { data, error } = await fetchCloudSave();
+export async function pullLatestState(localState, account) {
+  if (!isCloudMode(account)) {
+    return { applied: 'local', save: localState };
+  }
+  const { data, error } = await fetchCloudSave(account.profileId);
   if (error) {
     console.warn('Could not fetch cloud save', error);
     pendingSync = true;
-    return { applied: 'local', save: local };
+    return { applied: 'local', save: localState };
   }
 
   if (!data) {
-    await pushSave(local);
-    return { applied: 'local', save: local };
+    await pushSave(localState, account);
+    return { applied: 'local', save: localState };
   }
 
-  const merged = mergeSaves(local, data);
-  setLocalSave(merged.save);
+  const merged = mergeSaves(localState, data);
   if (merged.source === 'local') {
-    await pushSave(merged.save);
+    await pushSave(merged.save, account);
   }
   return { applied: merged.source, save: merged.save };
 }
 
-export async function pushSave(save) {
-  if (!currentUserId) return null;
+export async function pushSave(state, account) {
+  if (!isCloudMode(account)) return null;
   if (!isSupabaseConfigured()) return null;
-  const payload = { user_id: currentUserId, save, updated_at: new Date().toISOString() };
-  const { error } = await supabase.from('progress').upsert(payload, { onConflict: 'user_id' });
+  const payload = {
+    profile_id: account.profileId,
+    state: normalizeStateForSave(state),
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from('saves').upsert(payload, { onConflict: 'profile_id' });
   if (error) throw error;
   return payload;
 }
@@ -74,15 +80,48 @@ export function hasPendingSync() {
   return pendingSync;
 }
 
-export async function attemptPendingSync() {
+export function scheduleAutosave(state) {
+  if (!isCloudMode(state.account)) return;
+  if (!isSupabaseConfigured()) return;
+  pendingSync = true;
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(async () => {
+    try {
+      await pushSave(state, state.account);
+      pendingSync = false;
+    } catch (error) {
+      console.warn('Autosave failed', error);
+      pendingSync = true;
+    }
+  }, DEBOUNCE_MS);
+}
+
+export async function attemptPendingSync(state) {
   if (!pendingSync) return;
-  if (!currentUserId) return;
+  if (!isCloudMode(state?.account)) return;
   try {
-    const local = getLocalSave();
-    await pushSave(local);
+    await pushSave(state, state.account);
     pendingSync = false;
   } catch (error) {
     console.warn('Retry sync failed', error);
     pendingSync = true;
   }
+}
+
+export async function flushPendingSync(state) {
+  if (!isCloudMode(state?.account)) return { status: 'local' };
+  if (!isSupabaseConfigured()) return { status: 'offline' };
+  try {
+    await pushSave(state, state.account);
+    pendingSync = false;
+    return { status: 'synced' };
+  } catch (error) {
+    pendingSync = true;
+    return { status: 'error', error };
+  }
+}
+
+export function syncStatus() {
+  if (pendingSync) return 'Cloud sync pending';
+  return 'All changes synced';
 }

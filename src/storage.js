@@ -1,4 +1,5 @@
 export const STORAGE_KEY = 'shellquest-save';
+export const ACCOUNT_CACHE_KEY = 'shellquest-account-cache-v1';
 
 export function defaultSave() {
   const timestamp = new Date().toISOString();
@@ -51,14 +52,46 @@ export function updateLocalSave(updater) {
   return setLocalSave(next);
 }
 
+function getCacheStore() {
+  const storage = getStorage();
+  const raw = storage.getItem(ACCOUNT_CACHE_KEY);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) || {};
+  } catch (err) {
+    console.warn('Failed to parse account cache', err);
+    return {};
+  }
+}
+
+export function storeAccountState(accountKey, state) {
+  if (!accountKey) return;
+  const storage = getStorage();
+  const cache = getCacheStore();
+  cache[accountKey] = structuredClone(state);
+  storage.setItem(ACCOUNT_CACHE_KEY, JSON.stringify(cache));
+}
+
+export function loadAccountState(accountKey) {
+  if (!accountKey) return null;
+  const cache = getCacheStore();
+  return cache[accountKey] || null;
+}
+
+export function clearAccountState(accountKey) {
+  if (!accountKey) return;
+  const storage = getStorage();
+  const cache = getCacheStore();
+  delete cache[accountKey];
+  storage.setItem(ACCOUNT_CACHE_KEY, JSON.stringify(cache));
+}
+
 /**
  * Compatibility export for state.js.
  * Returns a storage-like interface (localStorage if available, otherwise in-memory).
  */
-export function getStorage() {
-  if (typeof localStorage !== "undefined") return localStorage;
-
-  // In-memory fallback (e.g., SSR/tests)
+const memoryStorage = (() => {
+  if (typeof localStorage !== 'undefined') return null;
   const mem = new Map();
   return {
     getItem: (k) => (mem.has(k) ? mem.get(k) : null),
@@ -70,4 +103,9 @@ export function getStorage() {
       return mem.size;
     },
   };
+})();
+
+export function getStorage() {
+  if (typeof localStorage !== 'undefined') return localStorage;
+  return memoryStorage;
 }
