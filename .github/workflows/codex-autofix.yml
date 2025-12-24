@@ -1,0 +1,54 @@
+name: Codex Autofix
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  autofix:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Codex autofix
+        id: codex
+        uses: openai/codex-action@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            You are an automated assistant that proposes the smallest possible pull request to fix the failing CI run.
+            Keep changes minimal and focused on making the CI workflow green again.
+            Do not refactor or restyle code unrelated to the failure.
+            If you cannot determine a safe fix, explain why in the pull request body instead of making speculative edits.
+
+      - name: Create pull request with fixes
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "ci: apply codex autofix"
+          title: "ci: codex autofix for CI failures"
+          body: ${{ steps.codex.outputs.pull_request_body }}
+          branch: codex/autofix-${{ github.run_id }}
+          labels: autofix
