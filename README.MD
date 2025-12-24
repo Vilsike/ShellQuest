@@ -15,6 +15,13 @@ npm run dev
 npm test
 ```
 
+## Contributing / CI
+
+- Use `npm ci` for clean installs to match CI.
+- Run `npm test` and `npm run build` before pushing changes.
+- Format code with `npm run format` (Prettier) to keep diffs consistent.
+- GitHub Actions runs install, lint (if configured), test, and build on pushes and pull requests to `main`.
+
 ## Features
 
 - 35 quests validated with Zod across four zones, including new process and networking challenges.

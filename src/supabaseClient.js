@@ -1,6 +1,8 @@
 let createClient;
+const isNode = typeof process !== 'undefined' && !!process.versions?.node;
+const isBrowser = !isNode && typeof window !== 'undefined' && typeof document !== 'undefined';
 
-if (typeof window === 'undefined') {
+if (!isBrowser) {
   // Node/Jest: rely on the installed dependency
   const pkg = await import('@supabase/supabase-js');
   createClient = pkg.createClient;
