@@ -2,6 +2,7 @@ import { createDefaultFS } from './filesystem.js';
 import { executeCommand } from './terminal.js';
 import { loadState, saveState, applyRewards, updateQuestProgress, xpForNextLevel } from './state.js';
 import { zones, availableQuests, isQuestComplete, zoneUnlocked, quests } from './quests.js';
+import { banner, questComplete, tutorialCard, zoneIntro } from './ascii.js';
 import { upgradeCatalog, purchaseUpgrade } from './upgrades.js';
 
 const state = loadState();
@@ -21,6 +22,8 @@ const currencyEl = document.getElementById('currency');
 const offlineReportEl = document.getElementById('offline-report');
 const streakEl = document.getElementById('streak');
 
+const sessionZoneIntros = new Set();
+
 function init() {
   renderTabs();
   renderQuests();
@@ -28,6 +31,9 @@ function init() {
   renderStats();
   checkOfflineGains();
   updateStreak();
+  announceZoneUnlocks();
+  logAscii(banner());
+  logZoneIntroOnce(activeZone);
   logLine('Type `help` to begin your run.');
 }
 
@@ -42,13 +48,18 @@ function renderTabs() {
     tab.disabled = !unlocked;
     tab.onclick = () => {
       if (unlocked) {
-        activeZone = zone.id;
-        renderTabs();
-        renderQuests();
+        switchZone(zone.id);
       }
     };
     tabsEl.appendChild(tab);
   });
+}
+
+function switchZone(zoneId) {
+  activeZone = zoneId;
+  renderTabs();
+  renderQuests();
+  logZoneIntroOnce(zoneId);
 }
 
 function skillBar(label, value) {
@@ -126,6 +137,28 @@ function renderShop() {
   });
 }
 
+function logZoneIntroOnce(zoneId) {
+  if (sessionZoneIntros.has(zoneId)) return;
+  const zone = zones.find((z) => z.id === zoneId);
+  if (!zone) return;
+  sessionZoneIntros.add(zoneId);
+  logAscii(zoneIntro(zone.name));
+}
+
+function announceZoneUnlocks() {
+  state.zoneUnlockNotified ||= {};
+  zones.forEach((zone) => {
+    if (zone.id === 'zone1') return;
+    if (zoneUnlocked(state, zone.id) && !state.zoneUnlockNotified[zone.id]) {
+      state.zoneUnlockNotified[zone.id] = true;
+      logAscii(tutorialCard('Zone Unlocked!', [
+        `${zone.name} is now open.`,
+        'Switch tabs to explore it.',
+      ]));
+    }
+  });
+}
+
 function showHint(quest) {
   const now = Date.now();
   const cooldown = baseHintCooldown - (state.upgrades.hintCooldownReduction || 0) * 1000;
@@ -136,6 +169,21 @@ function showHint(quest) {
   }
   lastHintTime = now;
   logLine(`Hint: ${quest.hints[0]}`);
+}
+
+function logAscii(text, command = '') {
+  const line = document.createElement('div');
+  line.className = 'output-line ascii';
+  const cmdSpan = document.createElement('span');
+  cmdSpan.className = 'cmd';
+  cmdSpan.textContent = command ? `$ ${command}` : '$';
+  const pre = document.createElement('pre');
+  pre.className = 'ascii-block';
+  pre.textContent = text.trimEnd();
+  line.appendChild(cmdSpan);
+  line.appendChild(pre);
+  terminalOutputEl.appendChild(line);
+  terminalOutputEl.scrollTop = terminalOutputEl.scrollHeight;
 }
 
 function logLine(text, command = '') {
@@ -162,7 +210,15 @@ function handleCommand(event) {
   const value = input.value;
   input.value = '';
   const result = executeCommand(value, fs, state);
-  result.output.forEach((text) => logLine(text, result.command));
+  result.output.forEach((entry) => {
+    if (typeof entry === 'string') {
+      logLine(entry, result.command);
+    } else if (entry?.type === 'ascii') {
+      logAscii(entry.content, result.command);
+    } else {
+      logLine(entry?.content ?? '', result.command);
+    }
+  });
   checkQuests();
   saveState(state);
 }
@@ -176,9 +232,11 @@ function checkQuests() {
       applyRewards(state, quest.rewards);
       updateQuestProgress(state, quest.id, quest.zone);
       logLine(`Quest complete: ${quest.title}! +${quest.rewards.xp}xp +${quest.rewards.coins}c`);
+      logAscii(questComplete(quest.rewards));
       renderStats();
       renderTabs();
       renderQuests();
+      announceZoneUnlocks();
     }
   });
   saveState(state);
@@ -204,6 +262,7 @@ function updateStreak() {
   const now = Date.now();
   const last = state.streak.lastCheck || now;
   const diffDays = Math.floor((now - last) / (1000 * 60 * 60 * 24));
+  const previousDays = state.streak.days;
   if (diffDays === 0 && state.streak.days === 0) {
     state.streak.days = 1;
   } else if (diffDays === 1) {
@@ -211,6 +270,12 @@ function updateStreak() {
   }
   state.streak.lastCheck = now;
   streakEl.textContent = `Streak: ${state.streak.days} day${state.streak.days === 1 ? '' : 's'}`;
+  if (state.streak.days > previousDays) {
+    logAscii(tutorialCard('Streak Up!', [
+      `${state.streak.days}-day streak secured!`,
+      'Drop in daily to keep the fire lit.',
+    ]));
+  }
   saveState(state);
 }
 
