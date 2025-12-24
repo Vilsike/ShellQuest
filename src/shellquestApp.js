@@ -3,7 +3,7 @@ import { executeCommand } from './terminal.js';
 import { loadState, saveState, applyRewards, updateQuestProgress, xpForNextLevel } from './state.js';
 import { zones, availableQuests, isQuestComplete, zoneUnlocked, quests } from './quests.js';
 import { upgradeCatalog, purchaseUpgrade } from './upgrades.js';
-import { scheduleAutosave, attemptPendingSync, flushPendingSync } from './sync.js';
+import { onboardingMessage, shellquestBanner } from './ascii.js';
 
 const state = loadState();
 const fs = createDefaultFS();
@@ -30,8 +30,13 @@ function init() {
   checkOfflineGains();
   updateStreak();
   logLine('Type `help` to begin your run.');
-  if (!state.account?.username) {
-    logLine('Tip: create a profile with `signup <username>` to enable cloud saves.');
+
+  const bannerSeenKey = 'sq_seen_banner_v1';
+  const hasSeenBanner = localStorage.getItem(bannerSeenKey) === 'true';
+  if (!hasSeenBanner) {
+    logAscii(shellquestBanner);
+    logLine(onboardingMessage);
+    localStorage.setItem(bannerSeenKey, 'true');
   }
 }
 
@@ -120,7 +125,7 @@ function renderShop() {
       if (result.error) {
         logLine(result.error);
       } else {
-        persistStateWithSync();
+        saveState(state);
         renderStats();
         logLine(`Purchased ${upgrade.name}`);
       }
@@ -161,27 +166,36 @@ function logLine(text, command = '') {
   terminalOutputEl.scrollTop = terminalOutputEl.scrollHeight;
 }
 
-function persistStateWithSync() {
-  saveState(state);
-  scheduleAutosave(state);
+function logAscii(text, commandType = 'system') {
+  if (text === '__clear__') {
+    terminalOutputEl.innerHTML = '';
+    return;
+  }
+  const line = document.createElement('div');
+  line.className = `output-line ascii ${commandType}`;
+  const cmdSpan = document.createElement('span');
+  cmdSpan.className = 'cmd';
+  cmdSpan.textContent = commandType === 'user' ? '$' : '>';
+  const pre = document.createElement('pre');
+  pre.className = 'ascii-text';
+  pre.textContent = text;
+  line.appendChild(cmdSpan);
+  line.appendChild(pre);
+  terminalOutputEl.appendChild(line);
+  terminalOutputEl.scrollTop = terminalOutputEl.scrollHeight;
 }
 
-function refreshUI() {
-  renderStats();
-  renderTabs();
-  renderQuests();
-  renderShop();
-}
-
-async function handleCommand(event) {
+function handleCommand(event) {
   event.preventDefault();
   const value = input.value;
   input.value = '';
-  const result = await executeCommand(value, fs, state);
+  const result = executeCommand(value, fs, state);
+  if (result.asciiOutput) {
+    result.asciiOutput.forEach((block) => logAscii(block, 'user'));
+  }
   result.output.forEach((text) => logLine(text, result.command));
   checkQuests();
-  refreshUI();
-  persistStateWithSync();
+  saveState(state);
 }
 
 function checkQuests() {
@@ -198,7 +212,7 @@ function checkQuests() {
       renderQuests();
     }
   });
-  persistStateWithSync();
+  saveState(state);
 }
 
 function checkOfflineGains() {
@@ -214,7 +228,7 @@ function checkOfflineGains() {
     offlineReportEl.innerHTML = `Welcome back! You were away for ${(elapsed / (1000 * 60 * 60)).toFixed(2)}h and earned ${coinGain} coins.`;
   }
   state.lastActive = now;
-  persistStateWithSync();
+  saveState(state);
 }
 
 function updateStreak() {
@@ -228,7 +242,7 @@ function updateStreak() {
   }
   state.streak.lastCheck = now;
   streakEl.textContent = `Streak: ${state.streak.days} day${state.streak.days === 1 ? '' : 's'}`;
-  persistStateWithSync();
+  saveState(state);
 }
 
 let started = false;
@@ -243,9 +257,7 @@ export function startShellQuest() {
 
   window.addEventListener('beforeunload', () => {
     state.lastActive = Date.now();
-    persistStateWithSync();
-    flushPendingSync(state);
+    saveState(state);
   });
-  window.addEventListener('online', () => attemptPendingSync(state));
 }
 
