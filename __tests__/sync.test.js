@@ -2,7 +2,7 @@ import { mergeSaves } from '../src/sync.js';
 
 describe('mergeSaves', () => {
   const local = { xp: 5, updatedAt: '2024-01-02T00:00:00.000Z' };
-  const cloud = { save: { xp: 10 }, updated_at: '2024-01-03T00:00:00.000Z' };
+  const cloud = { state: { xp: 10 }, updated_at: '2024-01-03T00:00:00.000Z' };
 
   it('prefers the newest save', () => {
     const merged = mergeSaves(local, cloud);

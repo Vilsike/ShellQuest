@@ -1,39 +1,143 @@
-import { logCommand } from './state.js';
-import { banner, tutorialCard } from './ascii.js';
-import { quests, zones, zoneUnlocked, isQuestComplete } from './quests.js';
+import { logCommand, defaultState } from './state.js';
+import { validateUsername, normalizeUsername } from './validators.js';
+import { createCloudProfile, fetchCloudProfile, usernameTaken } from './auth.js';
+import { isSupabaseConfigured } from './supabaseClient.js';
+import { loadAccountState, storeAccountState } from './storage.js';
+import { pullLatestState, flushPendingSync, syncStatus } from './sync.js';
 
-function hasCompletedQuest(state) {
-  return Object.values(state.questStatus || {}).some((quest) => quest?.completed);
-}
+const CLOUD_BADGE = [
+  '==========================',
+  '  CLOUD SAVE ENABLED ☁️ ',
+  '==========================',
+];
 
-function nextRecommendedQuest(state) {
-  for (const zone of zones) {
-    if (!zoneUnlocked(state, zone.id)) continue;
-    const pending = quests.find((quest) => quest.zone === zone.id && !isQuestComplete(state, quest.id));
-    if (pending) return { quest: pending, zone };
+function accountKey(account) {
+  if (!account || (account.mode === 'local' && !account.username)) return 'local:guest';
+  if (account.mode === 'cloud') {
+    return `cloud:${account.profileId || normalizeUsername(account.username || '')}`;
   }
-  return null;
+  return `local:${normalizeUsername(account.username)}`;
 }
 
-function randomTips(count = 5) {
-  const tips = [
-    'Type `tutorial` anytime to see your next move.',
-    'Use `ls` often to stay oriented.',
-    '`pwd` tells you exactly where you are.',
-    'Try `cd tutorials` to explore starter files.',
-    'Most commands are lowercase. Mind the spaces.',
-    'Use `cat <file>` to read story snippets.',
-    'Create practice files with `touch filename`.',
-    'Clear clutter with `clear` to focus.',
-    'Unlock new zones by completing quests.',
-    'Pipes like `ls | grep txt` filter output.',
-  ];
-
-  const shuffled = [...tips].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
+function applyState(target, source) {
+  const clean = structuredClone(source);
+  Object.keys(target).forEach((key) => delete target[key]);
+  Object.assign(target, clean);
 }
 
-export function executeCommand(input, fs, state) {
+function persistSnapshot(account, state) {
+  const key = accountKey(account);
+  storeAccountState(key, state);
+}
+
+function ensureAccountMetadata(state, account) {
+  state.account = {
+    username: account.username ?? null,
+    profileId: account.profileId ?? null,
+    mode: account.mode || 'local',
+  };
+}
+
+function signupBadge() {
+  return [...CLOUD_BADGE];
+}
+
+async function handleSignup(username, state) {
+  if (!validateUsername(username)) {
+    return ['Invalid username. Use 3-16 letters, numbers, or underscores.'];
+  }
+  const normalized = normalizeUsername(username);
+  persistSnapshot(state.account, state);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const profile = await createCloudProfile(normalized);
+      ensureAccountMetadata(state, { username: profile.username, profileId: profile.id, mode: 'cloud' });
+      return ['Signup successful. Cloud profile created.', ...signupBadge()];
+    } catch (error) {
+      if (usernameTaken(error)) {
+        return ['Username taken. Try another.'];
+      }
+      return [error.message || 'Could not create profile.'];
+    }
+  }
+
+  const cacheKey = accountKey({ mode: 'local', username: normalized });
+  if (loadAccountState(cacheKey)) {
+    return ['Username taken. Try another.'];
+  }
+  ensureAccountMetadata(state, { username: normalized, profileId: `local-${normalized}`, mode: 'local' });
+  persistSnapshot(state.account, state);
+  return ['Local profile created (offline mode).'];
+}
+
+async function handleLogin(username, state) {
+  if (!validateUsername(username)) {
+    return ['Invalid username. Use 3-16 letters, numbers, or underscores.'];
+  }
+  const normalized = normalizeUsername(username);
+  persistSnapshot(state.account, state);
+
+  if (isSupabaseConfigured()) {
+    try {
+      const profile = await fetchCloudProfile(normalized);
+      if (!profile) {
+        return ['No profile found. Use signup <username>.'];
+      }
+      const cacheKey = accountKey({ mode: 'cloud', profileId: profile.id, username: profile.username });
+      const cached = loadAccountState(cacheKey) || structuredClone(defaultState);
+      ensureAccountMetadata(cached, { username: profile.username, profileId: profile.id, mode: 'cloud' });
+      const merged = await pullLatestState(cached, cached.account);
+      const nextState = { ...merged.save, account: cached.account };
+      applyState(state, nextState);
+      persistSnapshot(state.account, state);
+      return ['Logged in from cloud saves.', ...signupBadge()];
+    } catch (error) {
+      return [error.message || 'Could not log in.'];
+    }
+  }
+
+  const cacheKey = accountKey({ mode: 'local', username: normalized });
+  const cached = loadAccountState(cacheKey) || structuredClone(defaultState);
+  ensureAccountMetadata(cached, { username: normalized, profileId: `local-${normalized}`, mode: 'local' });
+  applyState(state, cached);
+  persistSnapshot(state.account, state);
+  return ['Local login ready.'];
+}
+
+function handleLogout(state) {
+  persistSnapshot(state.account, state);
+  const guest = loadAccountState('local:guest') || structuredClone(defaultState);
+  ensureAccountMetadata(guest, { username: null, profileId: null, mode: 'local' });
+  applyState(state, guest);
+  persistSnapshot(state.account, state);
+  return ['Logged out. Back to local mode.'];
+}
+
+function handleWhoAmI(state) {
+  if (state.account?.username) {
+    const modeLabel = state.account.mode === 'cloud' ? 'cloud' : 'local';
+    return [`${state.account.username} (${modeLabel})`];
+  }
+  return ['Not logged in.'];
+}
+
+async function handleSync(state) {
+  if (state.account?.mode !== 'cloud') {
+    return ['Local mode only. Nothing to sync.'];
+  }
+  if (!isSupabaseConfigured()) {
+    return ['Supabase not configured.'];
+  }
+
+  const merged = await pullLatestState(state, state.account);
+  applyState(state, { ...merged.save, account: state.account });
+  const flush = await flushPendingSync(state);
+  const status = flush.status === 'synced' ? 'Cloud save updated.' : syncStatus();
+  return [`Sync complete (${merged.applied}). ${status}`];
+}
+
+export async function executeCommand(input, fs, state) {
   const trimmed = input.trim();
   if (!trimmed) return { output: [''], command: '' };
 
@@ -42,7 +146,7 @@ export function executeCommand(input, fs, state) {
     const [left, right] = trimmed.split('|').map((part) => part.trim());
     if (right.startsWith('grep')) {
       const pattern = right.split(' ').slice(1).join(' ');
-      const leftResult = executeCommand(left, fs, state);
+      const leftResult = await executeCommand(left, fs, state);
       const filtered = leftResult.output.filter((line) => line.includes(pattern));
       const output = filtered.length ? filtered : ['(no matches)'];
       logCommand(state, trimmed, output.join('\n'));
@@ -54,16 +158,11 @@ export function executeCommand(input, fs, state) {
   let output = [];
 
   switch (cmd) {
-    case 'help': {
-      if (!hasCompletedQuest(state)) {
-        output.push({ type: 'ascii', content: tutorialCard('Welcome to ShellQuest', [
-          'Use `tutorial` for your next move.',
-          'Start with `pwd`, `ls`, then `cat notes.txt`.',
-        ]) });
-      }
-      output.push('Commands: help, tutorial, tips, banner, clear, pwd, ls, cd, cat, touch, mkdir, rm, echo, grep');
+    case 'help':
+      output = [
+        'Commands: help, clear, pwd, ls, cd, cat, touch, mkdir, rm, echo, grep, signup, login, logout, whoami, sync',
+      ];
       break;
-    }
     case 'clear':
       output = ['__clear__'];
       break;
@@ -74,28 +173,6 @@ export function executeCommand(input, fs, state) {
     case 'ls': {
       const result = fs.ls(args[0] || '');
       output = result.error ? [result.error] : [result.items.join('  ')];
-      break;
-    }
-    case 'banner': {
-      output = [{ type: 'ascii', content: banner() }];
-      break;
-    }
-    case 'tutorial': {
-      const next = nextRecommendedQuest(state);
-      if (!next) {
-        output = [{ type: 'ascii', content: tutorialCard('All quests clear!', ['Awaiting new adventures.']) }];
-      } else {
-        const lines = [
-          `Zone: ${next.zone.name}`,
-          `Goal: ${next.quest.goal}`,
-          `Try: ${next.quest.hints[0]}`,
-        ];
-        output = [{ type: 'ascii', content: tutorialCard(`Next: ${next.quest.title}`, lines) }];
-      }
-      break;
-    }
-    case 'tips': {
-      output = [{ type: 'ascii', content: tutorialCard('Quick tips', randomTips()) }];
       break;
     }
     case 'cd': {
@@ -168,11 +245,37 @@ export function executeCommand(input, fs, state) {
       output = result.error ? [result.error] : result.matches.length ? result.matches : ['(no matches)'];
       break;
     }
+    case 'signup': {
+      const username = args[0];
+      if (!username) {
+        output = ['Usage: signup <username>'];
+        break;
+      }
+      output = await handleSignup(username, state);
+      break;
+    }
+    case 'login': {
+      const username = args[0];
+      if (!username) {
+        output = ['Usage: login <username>'];
+        break;
+      }
+      output = await handleLogin(username, state);
+      break;
+    }
+    case 'logout':
+      output = handleLogout(state);
+      break;
+    case 'whoami':
+      output = handleWhoAmI(state);
+      break;
+    case 'sync':
+      output = await handleSync(state);
+      break;
     default:
       output = [`Unknown command: ${cmd}`];
   }
 
-  const flatOutput = output.map((entry) => (typeof entry === 'string' ? entry : entry.content));
-  logCommand(state, trimmed, flatOutput.join('\n'));
+  logCommand(state, trimmed, output.join('\n'));
   return { output, command: trimmed };
 }

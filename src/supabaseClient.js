@@ -1,9 +1,8 @@
 let createClient;
-const runningInNode = typeof window === 'undefined';
-const runningInTest = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+const isTestEnv = typeof process !== 'undefined' && process.env?.VITEST;
 
-if (runningInNode || runningInTest) {
-  // Node/Jest: rely on the installed dependency and avoid remote fetches in tests
+if (typeof window === 'undefined' || isTestEnv) {
+  // Node/Jest/Vitest: rely on the installed dependency
   const pkg = await import('@supabase/supabase-js');
   createClient = pkg.createClient;
 } else {
