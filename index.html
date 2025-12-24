@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShellQuest</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #0b1021; color: #f8f9fb; }
+    header { background: #111834; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    main { padding: 1.5rem; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    section { background: #141b3a; padding: 1rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    h1, h2, h3 { margin: 0 0 0.5rem 0; }
+    label { display: block; margin: 0.5rem 0 0.25rem; }
+    input { width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #2b3360; background: #0f1633; color: #fff; }
+    button { margin-top: 0.5rem; padding: 0.5rem 1rem; background: #3b82f6; border: none; color: #fff; border-radius: 6px; cursor: pointer; }
+    button.secondary { background: #293052; }
+    .grid { display: grid; gap: 0.5rem; }
+    .status { margin-top: 0.5rem; font-size: 0.9rem; color: #cbd5e1; }
+    .badge { background: #1f2937; padding: 0.3rem 0.6rem; border-radius: 4px; }
+    #username-display { font-weight: bold; }
+    #claim-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; }
+    #claim-card { background: #0f162f; padding: 1rem; border-radius: 10px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+    #claim-card h3 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>ShellQuest</h1>
+      <p class="status">Play offline or sign in to sync your journey.</p>
+    </div>
+    <div>
+      <span class="badge">User: <span id="username-display">Guest</span></span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Progress</h2>
+      <div id="progress-stats" class="grid">
+        <div>XP: <span id="xp-value">0</span></div>
+        <div>Coins: <span id="coins-value">0</span></div>
+        <div>Streak: <span id="streak-value">0</span></div>
+      </div>
+      <button id="quest-btn">Complete quest (demo)</button>
+      <p class="status" id="event-status">Offline-friendly: actions save locally, sync when signed in.</p>
+    </section>
+
+    <section>
+      <h2>Settings</h2>
+      <div class="grid">
+        <div>
+          <h3>Sign up</h3>
+          <label for="signup-email">Email</label>
+          <input id="signup-email" type="email" placeholder="player@example.com" />
+          <label for="signup-password">Password</label>
+          <input id="signup-password" type="password" placeholder="At least 6 characters" />
+          <button id="signup-btn">Create account</button>
+        </div>
+
+        <div>
+          <h3>Sign in</h3>
+          <label for="signin-email">Email</label>
+          <input id="signin-email" type="email" placeholder="player@example.com" />
+          <label for="signin-password">Password</label>
+          <input id="signin-password" type="password" />
+          <button id="signin-btn">Sign in</button>
+        </div>
+
+        <div>
+          <h3>Account</h3>
+          <button id="signout-btn" class="secondary">Sign out</button>
+          <button id="sync-btn">Sync now</button>
+          <p class="status" id="auth-status">You are playing as a guest.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="claim-modal">
+    <div id="claim-card">
+      <h3>Claim your username</h3>
+      <p>Pick a unique handle for ShellQuest (3-16 chars, letters/numbers/underscore, start with a letter).</p>
+      <label for="claim-username">Username</label>
+      <input id="claim-username" type="text" placeholder="adventurer" />
+      <button id="claim-btn">Claim username</button>
+      <p class="status" id="claim-status"></p>
+    </div>
+  </div>
+
+  <script src="./src/config.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
