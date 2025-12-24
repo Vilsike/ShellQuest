@@ -3,6 +3,7 @@ import { executeCommand } from './terminal.js';
 import { loadState, saveState, applyRewards, updateQuestProgress, xpForNextLevel } from './state.js';
 import { zones, availableQuests, isQuestComplete, zoneUnlocked, quests } from './quests.js';
 import { upgradeCatalog, purchaseUpgrade } from './upgrades.js';
+import { onboardingMessage, shellquestBanner } from './ascii.js';
 
 const state = loadState();
 const fs = createDefaultFS();
@@ -29,6 +30,14 @@ function init() {
   checkOfflineGains();
   updateStreak();
   logLine('Type `help` to begin your run.');
+
+  const bannerSeenKey = 'sq_seen_banner_v1';
+  const hasSeenBanner = localStorage.getItem(bannerSeenKey) === 'true';
+  if (!hasSeenBanner) {
+    logAscii(shellquestBanner);
+    logLine(onboardingMessage);
+    localStorage.setItem(bannerSeenKey, 'true');
+  }
 }
 
 function renderTabs() {
@@ -157,11 +166,33 @@ function logLine(text, command = '') {
   terminalOutputEl.scrollTop = terminalOutputEl.scrollHeight;
 }
 
+function logAscii(text, commandType = 'system') {
+  if (text === '__clear__') {
+    terminalOutputEl.innerHTML = '';
+    return;
+  }
+  const line = document.createElement('div');
+  line.className = `output-line ascii ${commandType}`;
+  const cmdSpan = document.createElement('span');
+  cmdSpan.className = 'cmd';
+  cmdSpan.textContent = commandType === 'user' ? '$' : '>';
+  const pre = document.createElement('pre');
+  pre.className = 'ascii-text';
+  pre.textContent = text;
+  line.appendChild(cmdSpan);
+  line.appendChild(pre);
+  terminalOutputEl.appendChild(line);
+  terminalOutputEl.scrollTop = terminalOutputEl.scrollHeight;
+}
+
 function handleCommand(event) {
   event.preventDefault();
   const value = input.value;
   input.value = '';
   const result = executeCommand(value, fs, state);
+  if (result.asciiOutput) {
+    result.asciiOutput.forEach((block) => logAscii(block, 'user'));
+  }
   result.output.forEach((text) => logLine(text, result.command));
   checkQuests();
   saveState(state);
