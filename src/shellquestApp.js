@@ -214,10 +214,19 @@ function updateStreak() {
   saveState(state);
 }
 
-form.addEventListener('submit', handleCommand);
-window.addEventListener('beforeunload', () => {
-  state.lastActive = Date.now();
-  saveState(state);
-});
+let started = false;
 
-init();
+export function startShellQuest() {
+  if (started) return;
+  started = true;
+
+  init();
+
+  form.addEventListener('submit', handleCommand);
+
+  window.addEventListener('beforeunload', () => {
+    state.lastActive = Date.now();
+    saveState(state);
+  });
+}
+
