@@ -1,6 +1,5 @@
 node_modules
-npm-debug.log
-.env
-src/config.js
-.DS_Store
+npm-debug.log*
 dist
+.vite
+.DS_Store
