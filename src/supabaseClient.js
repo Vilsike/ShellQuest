@@ -1,12 +1,13 @@
 let createClient;
+const isNodeLike = typeof window === 'undefined' || process?.env?.VITEST;
 
-if (typeof window === 'undefined') {
+if (isNodeLike) {
   // Node/Jest: rely on the installed dependency
   const pkg = await import('@supabase/supabase-js');
   createClient = pkg.createClient;
 } else {
   // Browser: load from the CDN so we can stay static without bundling
-  const pkg = await import('https://esm.sh/@supabase/supabase-js@2.45.4');
+  const pkg = await import(/* @vite-ignore */ 'https://esm.sh/@supabase/supabase-js@2.45.4');
   createClient = pkg.createClient;
 }
 

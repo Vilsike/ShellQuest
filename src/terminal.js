@@ -1,4 +1,5 @@
 import { logCommand } from './state.js';
+import { onboardingMessage, shellquestBanner } from './ascii.js';
 
 export function executeCommand(input, fs, state) {
   const trimmed = input.trim();
@@ -19,10 +20,20 @@ export function executeCommand(input, fs, state) {
 
   const [cmd, ...args] = trimmed.split(' ');
   let output = [];
+  let asciiOutput = [];
 
   switch (cmd) {
     case 'help':
-      output = ['Commands: help, clear, pwd, ls, cd, cat, touch, mkdir, rm, echo, grep'];
+      output = [
+        'Commands:',
+        '  help, clear, pwd, ls, cd, cat, touch, mkdir, rm, echo, grep, banner',
+        '',
+        'Cloud Save:',
+        '  signup <username>  - create a cloud profile',
+        '  login <username>   - load your cloud save',
+        '  logout             - disconnect from cloud save',
+        '  whoami             - show current cloud user',
+      ];
       break;
     case 'clear':
       output = ['__clear__'];
@@ -106,10 +117,16 @@ export function executeCommand(input, fs, state) {
       output = result.error ? [result.error] : result.matches.length ? result.matches : ['(no matches)'];
       break;
     }
+    case 'banner': {
+      asciiOutput = [shellquestBanner];
+      output = [onboardingMessage];
+      break;
+    }
     default:
       output = [`Unknown command: ${cmd}`];
   }
 
-  logCommand(state, trimmed, output.join('\n'));
-  return { output, command: trimmed };
+  const loggableOutput = [...output, ...asciiOutput].join('\n');
+  logCommand(state, trimmed, loggableOutput);
+  return { output, command: trimmed, asciiOutput };
 }
