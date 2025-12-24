@@ -50,3 +50,24 @@ export function updateLocalSave(updater) {
   next.updatedAt = new Date().toISOString();
   return setLocalSave(next);
 }
+
+/**
+ * Compatibility export for state.js.
+ * Returns a storage-like interface (localStorage if available, otherwise in-memory).
+ */
+export function getStorage() {
+  if (typeof localStorage !== "undefined") return localStorage;
+
+  // In-memory fallback (e.g., SSR/tests)
+  const mem = new Map();
+  return {
+    getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+    setItem: (k, v) => mem.set(k, String(v)),
+    removeItem: (k) => mem.delete(k),
+    clear: () => mem.clear(),
+    key: (i) => Array.from(mem.keys())[i] ?? null,
+    get length() {
+      return mem.size;
+    },
+  };
+}
