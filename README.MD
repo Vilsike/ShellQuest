@@ -28,3 +28,4 @@ npm test
 - Simulated commands for env/export/ps/kill/history plus ping/curl/apt/pacman.
 - UI shows zone completion percentage, recommended next quest, and mastery badges when all quests (including a challenge) are completed.
 - Mobile-friendly responsive layout.
+- Terminal output preserves ASCII alignment with monospace formatting—run `banner` to replay the ShellQuest introduction.

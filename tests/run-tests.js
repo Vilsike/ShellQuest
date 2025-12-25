@@ -4,22 +4,22 @@ import { executeCommand } from '../src/terminal.js';
 import { resetStateForTests, logCommand } from '../src/state.js';
 import { quests } from '../src/quests.js';
 
-function testCdChangesPath() {
+async function testCdChangesPath() {
   const state = resetStateForTests();
   const fs = new VirtualFileSystem();
-  const result = executeCommand('cd tutorials', fs, state);
+  const result = await executeCommand('cd tutorials', fs, state);
   assert.ok(result.output[0].includes('/home/adventurer/tutorials'), 'cd should change cwd to tutorials');
 }
 
-function testGrepMatches() {
+async function testGrepMatches() {
   const state = resetStateForTests();
   const fs = new VirtualFileSystem();
   fs.echo('line one\nneedle line\nline three', 'notes.txt');
-  const result = executeCommand('grep needle notes.txt', fs, state);
+  const result = await executeCommand('grep needle notes.txt', fs, state);
   assert.deepStrictEqual(result.output, ['needle line'], 'grep should return matching lines');
 }
 
-function testQuestValidation() {
+async function testQuestValidation() {
   const state = resetStateForTests();
   const fs = new VirtualFileSystem();
   // simulate mkdir practice
@@ -38,7 +38,7 @@ const tests = [
 let passed = 0;
 for (const [name, fn] of tests) {
   try {
-    fn();
+    await fn();
     passed += 1;
     console.log(`✅ ${name}`);
   } catch (err) {
