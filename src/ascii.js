@@ -71,3 +71,40 @@ export function cloudEnabled(username = 'Adventurer') {
     'Progress will sync across devices.',
   ]);
 }
+
+// --- Compatibility exports (used by shellquestApp.js) ---
+export const onboardingMessage = (typeof onboardingMessage === 'function')
+  ? onboardingMessage
+  : (typeof getOnboardingMessage === 'function')
+    ? getOnboardingMessage
+    : () => '';
+
+export const shellquestBanner = (typeof shellquestBanner === 'function')
+  ? shellquestBanner
+  : (typeof banner === 'function')
+    ? banner
+    : () => '';
+// Compatibility exports expected by shellquestApp.js
+export function shellquestBanner() {
+  return banner();
+}
+
+export function onboardingMessage() {
+  return tutorialCard("Welcome to ShellQuest", [
+    "Type `help` to see commands.",
+    "Try `signup <username>` to create an account.",
+    "Complete quests to earn XP + coins and unlock zones.",
+  ]);
+}
+// Compatibility exports expected by shellquestApp.js
+export function shellquestBanner() {
+  return banner();
+}
+
+export function onboardingMessage() {
+  return tutorialCard("Welcome to ShellQuest", [
+    "Type `help` to see commands.",
+    "Try `signup <username>` to create an account.",
+    "Complete quests to earn XP + coins and unlock zones.",
+  ]);
+}
